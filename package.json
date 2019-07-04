@@ -4,6 +4,9 @@
   "description": "Comment on it!",
   "main": "index.js",
   "scripts": {
+    "start": "parcel ./client/index.html",
+    "watch": "parcel watch ./client/index.html --public-url ./dist",
+    "build": "parcel build ./client/index.html",
     "server": "nodemon ./server/main.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -11,6 +14,8 @@
   "author": "Nathaniel Hutchins (mynockspit)",
   "license": "MIT",
   "dependencies": {
+    "@emotion/core": "^10.0.14",
+    "antd": "^3.20.0",
     "bcrypt": "^3.0.6",
     "body-parser": "^1.19.0",
     "connect-ensure-login": "^0.1.1",
@@ -20,7 +25,9 @@
     "morgan": "^1.9.1",
     "parcel": "^1.12.3",
     "passport": "^0.4.0",
-    "passport-local": "^1.0.0"
+    "passport-local": "^1.0.0",
+    "react": "^16.8.6",
+    "react-dom": "^16.8.6"
   },
   "devDependencies": {
     "nodemon": "^1.19.1"

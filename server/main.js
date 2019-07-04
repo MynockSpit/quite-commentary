@@ -5,6 +5,7 @@ const { MongoClient, ObjectID } = require('mongodb')
 const bcrypt = require('bcrypt')
 const bodyParser = require('body-parser')
 const expressSession = require('express-session')
+const path = require('path')
 
 // the login code used when calling passport.authenticate('local')
 passport.use(new Strategy(
@@ -102,13 +103,13 @@ app.post('/posts',
     const { message } = req.body
 
     const post = {
+      author: req.session.passport.user,
       message,
       time: new Date()
     }
 
     // interestingly, defining a variable and doing it this way modifies the object
-    await db.collection('posts')
-      .insertOne(post)
+    await db.collection('posts').insertOne(post)
 
     res.status(200).send(post)
   }
@@ -136,27 +137,41 @@ app.post('/posts/:postid',
     const { postid } = req.params
 
     const post = {
+      author: req.session.passport.user,
       message,
       time: new Date(),
       parentId: ObjectID(postid)
     }
 
-    db.collection('posts').insertOne(post)
+    await db.collection('posts').insertOne(post)
 
     res.status(200).send(post)
   }
 )
 
-// 
-// GET /posts // get root-level posts
-// POST /posts // create a root-level post
-// GET /posts/:postid // get details of a post (including sub-posts)
-// POST /posts/:postid // create a reply post to a previous post
-// 
-// default route
-app.use(function (req, res) {
-  res.send(403)
+// anything to /dist should be passed to /dist
+app.use('/dist', express.static('dist'))
+
+// any other gets should be passed the index
+app.get('*', function (req, res) {
+  res.sendFile(path.resolve(__dirname, '../dist/index.html'));
 })
+
+// anything that doesn't fall into those categories should 404
+app.use((req, res) => {
+  // note: if you ever 403 on any resource, you probably never want to 404
+  // that'll allow an attacker to find resources that don't exist
+  // we're never (intentionally 403ing), so it doesn't matter
+  res.sendStatus(404)
+})
+
+// app.use(function (req, res) {
+//   console.log(path.resolve(__dirname, '../dist/index.html'))
+//   let index = fs.readFileSync(path.resolve(__dirname, '../dist/index.html'))
+
+//   // res.set('Content-Type', 'text/html');
+//   res.status(200).send(index)
+// })
 
 MongoClient.connect(process.env.MONGODB_URI, (err, client) => {
   if (err) return console.log(err)
