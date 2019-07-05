@@ -4,11 +4,11 @@
   "description": "Comment on it!",
   "main": "index.js",
   "scripts": {
-    "start": "parcel ./client/index.html",
-    "watch": "parcel watch ./client/index.html --public-url ./dist",
-    "build": "parcel build ./client/index.html",
-    "server": "nodemon -w ./server ./server/main.js",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "build": "parcel build ./client/index.html --public-url ./dist",
+    "start": "node ./server/main.js",
+    "server": "node ./server/main.js",
+    "dev-build": "parcel watch ./client/index.html --public-url ./dist",
+    "dev-server": "nodemon -w ./server ./server/main.js"
   },
   "keywords": [],
   "author": "Nathaniel Hutchins (mynockspit)",

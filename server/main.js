@@ -273,7 +273,9 @@ MongoClient.connect(process.env.MONGODB_URI, (err, client) => {
 
   db = client.db('heroku_nxstfg7q')
 
-  app.listen(3000, () => {
-    console.log('Listening on http://localhost:3000...')
+  let port = process.env.PORT || 3000
+
+  app.listen(port, () => {
+    console.log(`Listening on http://localhost:${port}...`)
   })
 })
