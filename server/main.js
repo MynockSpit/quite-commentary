@@ -7,6 +7,14 @@ const bodyParser = require('body-parser')
 const expressSession = require('express-session')
 const path = require('path')
 
+const SafeObjectID = (id) => {
+  try {
+    return ObjectID(id)
+  } catch (e) {
+    id
+  }
+}
+
 // the login code used when calling passport.authenticate('local')
 passport.use(new Strategy(
   async function (username, password, cb) {
@@ -22,15 +30,19 @@ passport.use(new Strategy(
       return cb(null, user)
     }
 
-    return cb(null, false) 
+    return cb(null, false)
   }))
 
 
 // for restoring from sessions
 passport.serializeUser((user, cb) => cb(null, user._id))
 passport.deserializeUser(async (id, cb) => {
-  let user = await db.collection('users').findOne({ username })
-  cb(null, user)
+  try {
+    let user = await db.collection('users').findOne({ _id: SafeObjectID(id) })
+    cb(null, user)
+  } catch (e) {
+    cb(null, false)
+  }
 })
 
 const app = express()
@@ -50,7 +62,7 @@ app.use(passport.session())
 // Define routes.
 
 // register, then immediately log in
-app.post('/register', 
+app.post('/register',
   async function (req, res, next) {
     let { username, password } = req.body
 
@@ -65,14 +77,26 @@ app.post('/register',
 
     next()
   },
-  passport.authenticate('local', { failureRedirect: '/login' }),
-  function (req, res) { res.redirect('/') }
-)
+  passport.authenticate('local'),
+  async function (req, res) {
+    let user = await db.collection('users')
+      .findOne({ _id: SafeObjectID(req.session.passport.user) })
+
+    delete user.password
+
+    return res.status(200).send(user)
+  })
 
 app.post('/login',
-  passport.authenticate('local', { failureRedirect: '/login' }),
-  function (req, res) { res.redirect('/') }
-)
+  passport.authenticate('local'),
+  async function (req, res) {
+    let user = await db.collection('users')
+      .findOne({ _id: SafeObjectID(req.session.passport.user) })
+
+    delete user.password
+
+    return res.status(200).send(user)
+  })
 
 app.get('/logout',
   function (req, res) {
@@ -92,7 +116,19 @@ app.get('/posts', async (req, res) => {
   let rootPosts = await db.collection('posts')
     .find({ parentId: { $exists: false } })
     .toArray()
-  
+
+  let authors = {}
+
+  for (let i = rootPosts.length; i--;) {
+    let post = rootPosts[i]
+    let authorId = post.author
+    if (!authors[authorId]) {
+      let author = await db.collection('users').findOne({ _id: SafeObjectID(authorId) })
+      authors[authorId] = author.username
+    }
+    post.author = authors[authorId]
+  }
+
   res.status(200).send(rootPosts)
 })
 
@@ -119,14 +155,34 @@ app.post('/posts',
 app.get('/posts/:postid', async (req, res) => {
   const { postid } = req.params
 
-  const [ rootPost, nestedPosts ] = await Promise.all([
-    db.collection('posts').findOne({ _id: ObjectID(postid) }),
-    db.collection('posts').find({ parentId: { $eq: ObjectID(postid) } }).toArray()
+  const [rootPost, nestedPosts] = await Promise.all([
+    db.collection('posts').findOne({ _id: SafeObjectID(postid) }),
+    db.collection('posts').find({ parentId: { $eq: SafeObjectID(postid) } }).toArray()
   ])
 
-  rootPost.replies = nestedPosts
+  if (rootPost) {
 
-  res.status(200).send(rootPost)
+    rootPost.replies = nestedPosts
+
+    let authors = {}
+
+    let allPosts = [].concat(rootPost, nestedPosts)
+
+    for (let i = allPosts.length; i--;) {
+      let post = allPosts[i]
+      let authorId = post.author
+      if (!authors[authorId]) {
+        let author = await db.collection('users').findOne({ _id: SafeObjectID(authorId) })
+        authors[authorId] = author.username
+      }
+      post.author = authors[authorId]
+    }
+
+    res.status(200).send(rootPost)
+  } else {
+    // res.status(400).send({ message: `Post w/ id (${postid}) doesn't exist.` })
+    res.status(400).send(`Post w/ id (${postid}) doesn't exist.`)
+  }
 })
 
 // create new subpost
@@ -140,7 +196,7 @@ app.post('/posts/:postid',
       author: req.session.passport.user,
       message,
       time: new Date(),
-      parentId: ObjectID(postid)
+      parentId: SafeObjectID(postid)
     }
 
     await db.collection('posts').insertOne(post)
@@ -175,10 +231,10 @@ app.use((req, res) => {
 
 MongoClient.connect(process.env.MONGODB_URI, (err, client) => {
   if (err) return console.log(err)
-  
+
   db = client.db('heroku_nxstfg7q')
 
   app.listen(3000, () => {
-    console.log('listening on 3000')
+    console.log('Listening on http://localhost:3000...')
   })
 })
