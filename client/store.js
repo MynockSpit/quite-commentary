@@ -11,4 +11,6 @@ try {
 
 export const Store = store({ user })
 
+window.Store = Store
+
 login()

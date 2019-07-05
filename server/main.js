@@ -66,7 +66,7 @@ store.on('error', function (error) {
   console.log(error)
 })
 
-app.use(expressSession({ 
+app.use(expressSession({
   secret: process.env.SESSION_SECRET,
   cookie: {
     maxAge: 1000 * 60 * 60 * 24 * 7 // 1 week
@@ -129,48 +129,52 @@ app.get('/logout',
     res.sendStatus(200)
   })
 
-// app.post('/delete', 
-//   passport.authenticate('local', { failureRedirect: '/login' }),
-//   function (req, res) {
-//     req.logout()
-//     res.redirect('/')
-//   })
-
 // get all parent posts
-app.get('/posts', async (req, res) => {
-  let rootPosts = await db.collection('posts')
-    .find({ parentId: { $exists: false } })
-    .toArray()
+app.get('/posts',
+  async (req, res) => {
+    console.log('GET /posts')
 
-  let authors = {}
+    let rootPosts = (await db.collection('posts')
+      .find({ parentId: { $exists: false } })
+      .toArray())
+      .sort((a,b) => {
+        return b.time - a.time
+      })
 
-  for (let i = rootPosts.length; i--;) {
-    let post = rootPosts[i]
-    let authorId = post.author
-    if (!authors[authorId]) {
-      let author = await db.collection('users').findOne({ _id: SafeObjectID(authorId) })
-      authors[authorId] = author.username
+    let authors = {}
+
+    for (let i = rootPosts.length; i--;) {
+      let post = rootPosts[i]
+      let authorId = post.author
+      if (!authors[authorId]) {
+        let author = await db.collection('users').findOne({ _id: SafeObjectID(authorId) })
+        authors[authorId] = author.username
+      }
+      post.author = authors[authorId]
     }
-    post.author = authors[authorId]
-  }
 
-  res.status(200).send(rootPosts)
-})
+    res.status(200).send(rootPosts)
+  })
 
 // create a new parent post
 app.post('/posts',
-  passport.authenticate('local', { failureRedirect: '/login' }),
+  require('connect-ensure-login').ensureLoggedIn(),
   async (req, res) => {
-    const { message } = req.body
-
+    console.log('POST /posts')
+    console.log(req.body)
     const post = {
-      author: req.session.passport.user,
-      message,
+      author: SafeObjectID(req.session.passport.user),
+      message: req.body.message,
+      replyCount: 0,
       time: new Date()
     }
 
     // interestingly, defining a variable and doing it this way modifies the object
     await db.collection('posts').insertOne(post)
+
+    let author = await db.collection('users').findOne({ _id: SafeObjectID(post.author) })
+
+    post.author = author.username
 
     res.status(200).send(post)
   }
@@ -212,19 +216,29 @@ app.get('/posts/:postid', async (req, res) => {
 
 // create new subpost
 app.post('/posts/:postid',
-  passport.authenticate('local', { failureRedirect: '/login' }),
+  require('connect-ensure-login').ensureLoggedIn(),
   async (req, res) => {
-    const { message } = req.body
     const { postid } = req.params
+    console.log(`POST /posts/${postid}`)
 
     const post = {
-      author: req.session.passport.user,
-      message,
+      author: SafeObjectID(req.session.passport.user),
+      message: req.body.message,
+      replyCount: 0,
       time: new Date(),
       parentId: SafeObjectID(postid)
     }
 
     await db.collection('posts').insertOne(post)
+
+    await db.collection('posts').updateOne(
+      { _id: SafeObjectID(postid) }, 
+      { $inc: { replyCount: 1 } }
+    )
+
+    let author = await db.collection('users').findOne({ _id: SafeObjectID(post.author) })
+
+    post.author = author.username
 
     res.status(200).send(post)
   }

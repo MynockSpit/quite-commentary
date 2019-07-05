@@ -1,11 +1,12 @@
 /** @jsx jsx */
 import { css, jsx } from '@emotion/core'
 import React, { useState } from 'react'
+import { navigate } from "@reach/router"
 import { Layout, Menu, Popover, Form, Input, Icon, Button } from 'antd'
 
 const { Header } = Layout
 
-import { login, logout } from './service'
+import { login, logout, register } from './service'
 import { Store } from './store'
 
 const menuItemCss = css`
@@ -23,7 +24,7 @@ export default () => {
     setState({ current: event.key })
   }
 
-  const { user } = Store.use()
+  const { user, selectedPost } = Store.use()
 
   return (
     <Header style={{
@@ -36,6 +37,14 @@ export default () => {
         mode="horizontal"
         style={{ lineHeight: '62px' }}
       >
+        <Menu.Item key="back" style={{ display: selectedPost ? undefined : 'none' }} onClick={async () => {
+          setState({ current: '' })
+          await navigate(`/`)
+          Store.set({ selectedPost: null })
+        }}>
+          <Icon type="arrow-left" />
+        </Menu.Item>
+        
         <Menu.Item key="logout" style={{ display: user ? undefined : 'none' }} onClick={logout} css={menuItemCss}>
           Log Out {user && user.username}
         </Menu.Item>
