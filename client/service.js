@@ -1,3 +1,5 @@
+import { Store } from './store'
+
 async function call(...args) {
    let response = await fetch(...args)
    let responseBackup = response.clone()
@@ -26,14 +28,48 @@ async function call(...args) {
    }
 }
 
-export function login(username, password) {
-   return call('/login', {
-      headers: {
-         "content-type": "application/json"
-      },
-      method: 'POST', 
-      body: JSON.stringify({ username, password }) 
-   })
+export async function register(username, password) {
+   try {
+      let { body } = await call('/register', {
+         headers: {
+            "content-type": "application/json"
+         },
+         credentials: "include",
+         method: 'POST',
+         body: username ? JSON.stringify({ username, password }) : undefined
+      })
+
+      Store.set({ user: body })
+      localStorage.setItem('user', JSON.stringify(body))
+   } catch (e) {
+      Store.set({ user: null })
+      localStorage.removeItem('user')
+   }
+}
+
+export async function login(username, password) {
+   try {
+      let { body } = await call('/login', {
+         headers: {
+            "content-type": "application/json"
+         },
+         credentials: "include",
+         method: 'POST',
+         body: username ? JSON.stringify({ username, password }) : undefined
+      })
+
+      Store.set({ user: body })
+      localStorage.setItem('user', JSON.stringify(body))
+   } catch (e) {
+      Store.set({ user: null })
+      localStorage.removeItem('user')
+   }
+}
+
+export async function logout() {
+   await call('/logout')
+   localStorage.removeItem('user')
+   Store.set({ user: null })
 }
 
 export async function getPosts() {

@@ -5,6 +5,8 @@ const { MongoClient, ObjectID } = require('mongodb')
 const bcrypt = require('bcrypt')
 const bodyParser = require('body-parser')
 const expressSession = require('express-session')
+const MongoDBStore = require('connect-mongodb-session')(expressSession);
+
 const path = require('path')
 
 const SafeObjectID = (id) => {
@@ -53,7 +55,24 @@ app.use(bodyParser.urlencoded({ extended: true }))
 app.use(bodyParser.json())
 
 // for recalling from sessions
-app.use(expressSession({ secret: process.env.SESSION_SECRET, resave: false, saveUninitialized: false }))
+
+const store = new MongoDBStore({
+  uri: process.env.MONGODB_URI,
+  collection: 'sessions'
+})
+
+// Catch errors
+store.on('error', function (error) {
+  console.log(error)
+})
+
+app.use(expressSession({ 
+  secret: process.env.SESSION_SECRET,
+  cookie: {
+    maxAge: 1000 * 60 * 60 * 24 * 7 // 1 week
+  },
+  store: store
+}))
 
 // now we init passport
 app.use(passport.initialize())
@@ -88,7 +107,13 @@ app.post('/register',
   })
 
 app.post('/login',
-  passport.authenticate('local'),
+  function (req, res, next) {
+    // if we can access this w/o throwing AND it exists...
+    if (req.session.passport && req.session.passport.user)
+      return next()
+
+    return passport.authenticate('local')(req, res, next)
+  },
   async function (req, res) {
     let user = await db.collection('users')
       .findOne({ _id: SafeObjectID(req.session.passport.user) })
@@ -101,7 +126,7 @@ app.post('/login',
 app.get('/logout',
   function (req, res) {
     req.logout()
-    res.redirect('/')
+    res.sendStatus(200)
   })
 
 // app.post('/delete', 
