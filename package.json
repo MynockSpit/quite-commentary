@@ -18,7 +18,7 @@
     "@emotion/core": "^10.0.14",
     "@reach/router": "^1.2.1",
     "antd": "^3.20.0",
-    "bcrypt": "^3.0.6",
+    "bcrypt": "^5.0.0",
     "body-parser": "^1.19.0",
     "connect-ensure-login": "^0.1.1",
     "connect-mongodb-session": "^2.2.0",
